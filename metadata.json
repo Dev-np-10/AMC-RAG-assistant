@@ -1,0 +1,4 @@
+{
+  "name": "Facts-Only Mutual Fund Chatbot",
+  "description": "Retrieval-augmented generation chatbot answering factual mutual fund questions from official AMC/SEBI/AMFI sources."
+}

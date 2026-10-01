@@ -1,10 +1,10 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "facts-only-mutual-fund-chatbot",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
