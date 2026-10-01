@@ -167,8 +167,63 @@ const KNOWLEDGE: KnowledgeEntry[] = [
   },
 ];
 
+const UNSUPPORTED_FUNDS_OR_AMCS = [
+  'sbi',
+  'icici',
+  'axis',
+  'nippon',
+  'kotak',
+  'uti',
+  'mirae',
+  'tata',
+  'dsp',
+  'franklin',
+  'canara',
+  'edelweiss',
+  'parag parikh',
+  'ppfas',
+  'motilal',
+  'quant',
+  'bluechip',
+  'small cap',
+  'smallcap',
+  'flexi cap',
+  'flexicap',
+];
+
+const SCHEME_KEYWORD_SETS = [
+  ['balanced advantage'],
+  ['mid-cap', 'midcap'],
+  ['short term debt', 'short-term'],
+  ['index fund', 'nifty 50'],
+];
+
 function scoreEntry(question: string, entry: KnowledgeEntry): number {
   const q = question.toLowerCase();
+
+  // If query mentions an unsupported AMC or fund category not in our corpus, do not match
+  for (const unsup of UNSUPPORTED_FUNDS_OR_AMCS) {
+    const regex = new RegExp(`\\b${unsup.replace('-', '[-\\s]')}\\b`, 'i');
+    if (regex.test(q)) {
+      return 0;
+    }
+  }
+
+  // Identify which scheme this entry belongs to
+  let entrySchemeKws: string[] = [];
+  for (const sKws of SCHEME_KEYWORD_SETS) {
+    if (sKws.some((sk) => entry.keywords.includes(sk))) {
+      entrySchemeKws = sKws;
+      break;
+    }
+  }
+
+  // The query must explicitly match at least one keyword for this specific scheme
+  const matchesScheme = entrySchemeKws.some((sk) => q.includes(sk.toLowerCase()));
+  if (!matchesScheme) {
+    return 0;
+  }
+
   let score = 0;
   for (const kw of entry.keywords) {
     if (q.includes(kw.toLowerCase())) score += kw.length;
@@ -190,10 +245,10 @@ export function demoSearch(question: string): RagResponse {
 
   if (!best || bestScore === 0) {
     return {
-      answer: 'I could not find any factual information about this in the ingested sources. Please try asking about expense ratio, SIP, exit load, lock-in period, riskometer, or benchmark for any of the four HDFC schemes covered.',
+      answer: 'I could not find this information in the available sources.',
       citation: null,
-      last_updated: '2026-09-30',
-      refused: false,
+      last_updated: null,
+      refused: true,
     };
   }
 

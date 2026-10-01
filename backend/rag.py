@@ -1,26 +1,35 @@
-"""RAG pipeline — embeddings, semantic retrieval, prompt construction, LLM generation, citation extraction.
+"""RAG pipeline — embeddings, semantic retrieval, prompt construction, Gemini LLM generation, citation extraction.
 
 Flow:
-  1. Generate OpenAI embedding for the user question.
+  1. Generate Gemini embedding for the user question (gemini-embedding-2-preview, 1536-dim).
   2. Call Supabase RPC `match_fund_chunks` for top-k semantic search.
   3. Filter by similarity threshold — refuse if no evidence.
-  4. Build a grounded prompt with retrieved context.
-  5. Call OpenAI LLM with strict system instructions.
-  6. Extract exactly one citation from the top retrieved chunk's source metadata.
+  4. Build indexed context with source numbers [Source 1], [Source 2], etc.
+  5. Call Google Gemini LLM (gemini-3.8-flash) instructing it to return the supporting source index.
+  6. Validate the supporting source index and select the corresponding retrieved chunk.
+  7. Extract the final citation metadata from the supporting chunk's source_id.
 """
 
 from __future__ import annotations
+
+import csv
+import json
+import os
+import re
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
 from typing import Any
-from openai import OpenAI
-from supabase import create_client, Client
 
 from config import (
-    OPENAI_API_KEY,
-    OPENAI_EMBEDDING_MODEL,
-    OPENAI_LLM_MODEL,
-    SUPABASE_URL,
-    SUPABASE_SERVICE_KEY,
+    GEMINI_API_KEY,
+    GEMINI_EMBEDDING_MODEL,
+    GEMINI_LLM_MODEL,
     SIMILARITY_THRESHOLD,
+    SOURCES_CSV,
+    SUPABASE_SERVICE_KEY,
+    SUPABASE_URL,
     TOP_K,
 )
 
@@ -35,49 +44,117 @@ Rules:
 4. If the context does not contain the answer, say: \
 "I could not find this information in the available sources."
 5. Do not mention the context or source by name in the answer — just state the facts.
-6. Do not include any disclaimer or caveat — the system handles that separately.\
+6. Do not include any disclaimer or caveat — the system handles that separately.
+7. On a new line at the very end of your response, specify which retrieved source directly supported your answer:
+Source: [N]
+where N is the integer index (1, 2, 3...) of the supporting [Source N]. If no source supports the answer, omit this line.\
 """
 
 
-def _get_clients() -> tuple[OpenAI | None, Client | None]:
-    """Build OpenAI and Supabase clients. Returns (None, None) if keys are missing."""
-    openai_client: OpenAI | None = None
-    supabase_client: Client | None = None
-
-    if OPENAI_API_KEY:
-        openai_client = OpenAI(api_key=OPENAI_API_KEY)
-    if SUPABASE_URL and SUPABASE_SERVICE_KEY:
-        supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
-    return openai_client, supabase_client
-
-
-def generate_embedding(text: str, client: OpenAI) -> list[float] | None:
-    """Generate an OpenAI embedding for the given text."""
+def _get_supabase_client() -> Any | None:
+    """Initialize Supabase client if credentials are configured."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return None
     try:
-        resp = client.embeddings.create(model=OPENAI_EMBEDDING_MODEL, input=text)
-        return resp.data[0].embedding
+        from supabase import create_client
+
+        return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     except Exception:
         return None
 
 
+def generate_embedding(
+    text: str,
+    api_key: str = GEMINI_API_KEY,
+    model: str = GEMINI_EMBEDDING_MODEL,
+    retries: int = 3,
+) -> list[float] | None:
+    """Generate a 1536-dim embedding using Google Gemini API."""
+    if not api_key or not text:
+        return None
+
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={api_key}"
+    )
+    payload = {
+        "content": {"parts": [{"text": text}]},
+        "outputDimensionality": 1536,
+    }
+    data = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "aistudio-build",
+    }
+
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(url, data=data, headers=headers)
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                return result.get("embedding", {}).get("values")
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 503) and attempt < retries - 1:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            return None
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            return None
+
+    return None
+
+
+def semantic_search_rest(
+    query_embedding: list[float],
+    supabase_url: str = SUPABASE_URL,
+    service_key: str = SUPABASE_SERVICE_KEY,
+    top_k: int = TOP_K,
+) -> list[dict[str, Any]]:
+    """Query match_fund_chunks RPC via direct Supabase PostgREST endpoint."""
+    if not supabase_url or not service_key:
+        return []
+    url = f"{supabase_url.rstrip('/')}/rest/v1/rpc/match_fund_chunks"
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+    }
+    payload = json.dumps({
+        "query_embedding": query_embedding,
+        "match_count": top_k,
+    }).encode("utf-8")
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
 def semantic_search(
-    supabase: Client,
+    supabase: Any,
     query_embedding: list[float],
     top_k: int = TOP_K,
 ) -> list[dict[str, Any]]:
     """Call the `match_fund_chunks` RPC and return matching chunks with metadata."""
-    try:
-        result = supabase.rpc(
-            "match_fund_chunks",
-            {
-                "query_embedding": query_embedding,
-                "match_count": top_k,
-            },
-        ).execute()
-        return result.data or []
-    except Exception:
-        return []
+    if supabase and hasattr(supabase, "rpc"):
+        try:
+            result = supabase.rpc(
+                "match_fund_chunks",
+                {
+                    "query_embedding": query_embedding,
+                    "match_count": top_k,
+                },
+            ).execute()
+            if result.data:
+                return result.data
+        except Exception:
+            pass
+
+    return semantic_search_rest(query_embedding, top_k=top_k)
 
 
 def filter_by_similarity(
@@ -89,55 +166,182 @@ def filter_by_similarity(
 
 
 def build_context(chunks: list[dict[str, Any]]) -> str:
-    """Build a text context string from the top retrieved chunks."""
-    return "\n\n".join(c["content"] for c in chunks[:3])
+    """Build an indexed text context string from retrieved chunks.
+
+    Each chunk is labeled with [Source 1], [Source 2], etc. so the LLM can reference it.
+    """
+    formatted_chunks = []
+    for idx, c in enumerate(chunks[:TOP_K], start=1):
+        source_id = c.get("source_id", "")
+        content = c.get("content", "").strip()
+        header = f"[Source {idx}] ({source_id})" if source_id else f"[Source {idx}]"
+        formatted_chunks.append(f"{header}:\n{content}")
+    return "\n\n".join(formatted_chunks)
+
+
+def parse_answer_and_source_index(
+    raw_output: str,
+    max_sources: int,
+) -> tuple[str, int | None]:
+    """Extract clean answer text and validate the supporting source index (1-based).
+
+    Returns:
+        (clean_answer, validated_source_index or None)
+    """
+    if not raw_output:
+        return "", None
+
+    text = raw_output.strip()
+    source_index: int | None = None
+
+    # Check for JSON format first
+    if text.startswith("{") and text.endswith("}"):
+        try:
+            data = json.loads(text)
+            ans = str(data.get("answer", "")).strip()
+            idx = data.get("source_index")
+            if isinstance(idx, int) and 1 <= idx <= max_sources:
+                return ans, idx
+            return ans, None
+        except Exception:
+            pass
+
+    # Look for trailing "Source: [N]" or "Source: N"
+    source_patterns = [
+        r"(?i)\n*(?:supporting\s+source|source|source_index)\s*[:=\[]\s*\[?(\d+)\]?",
+        r"(?i)\[source\s*(\d+)\]\s*$",
+    ]
+
+    for pat in source_patterns:
+        match = re.search(pat, text)
+        if match:
+            try:
+                candidate_idx = int(match.group(1))
+                if 1 <= candidate_idx <= max_sources:
+                    source_index = candidate_idx
+                # Strip the source reference tag from the user-facing answer
+                text = text[: match.start()].strip()
+                break
+            except Exception:
+                pass
+
+    # Clean any trailing "Source:" label leftovers or empty lines
+    text = re.sub(r"(?i)\n+source:\s*$", "", text).strip()
+
+    return text, source_index
 
 
 def generate_answer(
     question: str,
     context: str,
-    citation_title: str,
-    client: OpenAI,
-) -> str | None:
-    """Call the OpenAI LLM to generate a grounded answer."""
-    try:
-        resp = client.chat.completions.create(
-            model=OPENAI_LLM_MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": f"Context from {citation_title}:\n\n{context}\n\nQuestion: {question}",
-                },
-            ],
-            temperature=0,
-            max_tokens=150,
-        )
-        return resp.choices[0].message.content
-    except Exception:
-        return None
+    max_sources: int,
+    api_key: str = GEMINI_API_KEY,
+    model: str = GEMINI_LLM_MODEL,
+    retries: int = 2,
+) -> tuple[str | None, int | None]:
+    """Call Google Gemini LLM to generate a grounded answer with supporting source index."""
+    if not api_key:
+        return None, None
+
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    )
+    prompt_text = f"Context from official sources:\n\n{context}\n\nQuestion: {question}"
+
+    payload = {
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt_text}]}],
+        "generationConfig": {
+            "temperature": 0.0,
+            "maxOutputTokens": 250,
+        },
+    }
+    data = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "aistudio-build",
+    }
+
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(url, data=data, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                candidates = res.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and "text" in parts[0]:
+                        raw_text = parts[0]["text"].strip()
+                        clean_answer, source_idx = parse_answer_and_source_index(
+                            raw_text, max_sources
+                        )
+                        return clean_answer, source_idx
+                return None, None
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 503) and attempt < retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            return None, None
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            return None, None
+
+    return None, None
 
 
 def extract_citation(
-    supabase: Client,
+    supabase: Any,
     source_id: str,
 ) -> dict[str, Any] | None:
     """Fetch source metadata (URL, title, AMC, scheme, last-updated) for a citation."""
+    if supabase and hasattr(supabase, "table"):
+        try:
+            result = (
+                supabase.table("fund_sources")
+                .select("source_id, title, url, amc, scheme_name, last_updated")
+                .eq("source_id", source_id)
+                .maybe_single()
+                .execute()
+            )
+            if result and result.data:
+                return result.data
+        except Exception:
+            pass
+
+    # Fallback to local sources.csv lookup
     try:
-        result = (
-            supabase.table("fund_sources")
-            .select("source_id, title, url, amc, scheme_name, last_updated")
-            .eq("source_id", source_id)
-            .maybe_single()
-            .execute()
-        )
-        return result.data if result else None
+        csv_path = Path(__file__).resolve().parent.parent / "data" / "sources.csv"
+        if not csv_path.exists():
+            csv_path = Path(SOURCES_CSV)
+        if csv_path.exists():
+            with open(csv_path, mode="r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get("source_id") == source_id:
+                        return {
+                            "source_id": row["source_id"],
+                            "title": row.get("title", ""),
+                            "url": row.get("url", ""),
+                            "amc": row.get("amc", ""),
+                            "scheme_name": row.get("scheme_name", ""),
+                            "last_updated": row.get("last_updated", ""),
+                        }
     except Exception:
-        return None
+        pass
+
+    return None
 
 
 def run_rag(question: str) -> dict[str, Any]:
-    """Full RAG pipeline. Returns a dict with answer, citation, last_updated, refused.
+    """Full RAG pipeline using Google Gemini API and Supabase pgvector.
+
+    1. Retrieves top chunks by embedding similarity.
+    2. Builds indexed context [Source 1], [Source 2], etc.
+    3. LLM generates grounded answer and returns supporting source index.
+    4. Validates source index and selects the actual supporting chunk.
+    5. Extracts citation metadata from the supporting chunk's source_id.
 
     Returns:
         {
@@ -149,14 +353,16 @@ def run_rag(question: str) -> dict[str, Any]:
             "category": "FACTUAL",
         }
     """
-    openai_client, supabase_client = _get_clients()
+    supabase_client = _get_supabase_client()
 
-    # If no backend clients are configured, signal "no evidence"
-    if not openai_client or not supabase_client:
+    # If backend clients/keys are not configured, signal graceful lack of evidence
+    if not GEMINI_API_KEY or not supabase_client:
         return {
-            "answer": "I could not find any factual information about this in the ingested sources. "
-            "Please try asking about expense ratio, SIP, exit load, lock-in period, "
-            "riskometer, or benchmark for any of the four HDFC schemes covered.",
+            "answer": (
+                "I could not find any factual information about this in the ingested sources. "
+                "Please try asking about expense ratio, SIP, exit load, lock-in period, "
+                "riskometer, or benchmark for any of the four HDFC schemes covered."
+            ),
             "citation": None,
             "last_updated": None,
             "refused": False,
@@ -164,12 +370,14 @@ def run_rag(question: str) -> dict[str, Any]:
             "category": "FACTUAL",
         }
 
-    # 1. Generate embedding
-    embedding = generate_embedding(question, openai_client)
+    # 1. Generate Gemini embedding
+    embedding = generate_embedding(question)
     if not embedding:
         return {
-            "answer": "I could not generate a search embedding for your question. "
-            "Please ensure the OpenAI API key is configured and try again.",
+            "answer": (
+                "I could not generate a search embedding for your question. "
+                "Please ensure the Gemini API key is configured and try again."
+            ),
             "citation": None,
             "last_updated": None,
             "refused": False,
@@ -177,17 +385,15 @@ def run_rag(question: str) -> dict[str, Any]:
             "category": "FACTUAL",
         }
 
-    # 2. Semantic search
+    # 2. Semantic search in Supabase
     chunks = semantic_search(supabase_client, embedding)
     if not chunks:
         return {
-            "answer": "I could not find any factual information about this in the ingested sources. "
-            "Please try asking about expense ratio, SIP, exit load, lock-in period, "
-            "riskometer, or benchmark for any of the four HDFC schemes covered.",
+            "answer": "I could not find this information in the available sources.",
             "citation": None,
             "last_updated": None,
-            "refused": False,
-            "refusal_reason": None,
+            "refused": True,
+            "refusal_reason": "No matching context found in vector index",
             "category": "FACTUAL",
         }
 
@@ -195,24 +401,33 @@ def run_rag(question: str) -> dict[str, Any]:
     relevant = filter_by_similarity(chunks)
     if not relevant:
         return {
-            "answer": "I could not find any factual information about this in the ingested sources. "
-            "Please try asking about expense ratio, SIP, exit load, lock-in period, "
-            "riskometer, or benchmark for any of the four HDFC schemes covered.",
+            "answer": "I could not find this information in the available sources.",
             "citation": None,
             "last_updated": None,
-            "refused": False,
-            "refusal_reason": None,
+            "refused": True,
+            "refusal_reason": "No retrieved context exceeded similarity threshold",
             "category": "FACTUAL",
         }
 
-    # 4. Build context and get citation from top chunk
-    top_chunk = relevant[0]
+    # 4. Build indexed context with [Source 1], [Source 2], etc.
     context = build_context(relevant)
-    citation_data = extract_citation(supabase_client, top_chunk["source_id"])
+    max_sources = min(len(relevant), TOP_K)
+
+    # 5. Generate grounded answer and extract supporting source index
+    answer, supporting_idx = generate_answer(question, context, max_sources=max_sources)
+
+    # 6. Validate the supporting source index and select the supporting chunk
+    # If the LLM returned a valid index, use that chunk; otherwise fall back to top chunk
+    if supporting_idx is not None and 1 <= supporting_idx <= len(relevant):
+        supporting_chunk = relevant[supporting_idx - 1]
+    else:
+        supporting_chunk = relevant[0]
+
+    # 7. Extract final citation metadata from the supporting chunk's source_id
+    citation_data = extract_citation(supabase_client, supporting_chunk["source_id"])
 
     citation: dict[str, Any] | None = None
     last_updated: str | None = None
-    citation_title = top_chunk["source_id"]
 
     if citation_data:
         citation = {
@@ -224,14 +439,27 @@ def run_rag(question: str) -> dict[str, Any]:
             "last_updated": citation_data.get("last_updated") or "",
         }
         last_updated = citation["last_updated"]
-        citation_title = citation["title"]
 
-    # 5. Generate LLM answer
-    answer = generate_answer(question, context, citation_title, openai_client)
-
-    # Fallback: use top chunk content directly if LLM fails
+    # Fallback: use supporting chunk content directly if generation was empty
     if not answer:
-        answer = top_chunk["content"][:500]
+        answer = supporting_chunk["content"][:500]
+
+    # Check if the generated answer is an abstention/refusal
+    refusal_phrases = [
+        "could not find this information in the available sources",
+        "could not find any factual information",
+        "not found in the available sources",
+        "cannot find this information",
+    ]
+    if any(p in answer.lower() for p in refusal_phrases):
+        return {
+            "answer": "I could not find this information in the available sources.",
+            "citation": None,
+            "last_updated": None,
+            "refused": True,
+            "refusal_reason": "Information not found in available sources",
+            "category": "FACTUAL",
+        }
 
     return {
         "answer": answer,

@@ -2,14 +2,17 @@
 
 import os
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-OPENAI_LLM_MODEL = os.getenv("OPENAI_LLM_MODEL", "gpt-4o-mini")
+# Google Gemini API configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_LLM_MODEL = os.getenv("GEMINI_LLM_MODEL", "gemini-3.8-flash")
+GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2-preview")
 
+# Supabase vector store configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_SERVICE_KEY", ""))
 SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL", "")
 
+# Ingestion & retrieval parameters
 SOURCES_CSV = os.getenv("SOURCES_CSV", "data/sources.csv")
-SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.70"))
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.72"))
 TOP_K = int(os.getenv("TOP_K", "4"))

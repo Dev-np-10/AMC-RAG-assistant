@@ -52,11 +52,11 @@ export async function fetchSources(): Promise<
   }
 }
 
-export async function checkHealth(): Promise<{ status: string; openai_configured: boolean; supabase_configured: boolean; date: string } | null> {
+export async function checkHealth(): Promise<{ status: string; gemini_configured: boolean; supabase_configured: boolean; date: string } | null> {
   if (!API_BASE) {
     return {
       status: 'ok',
-      openai_configured: false,
+      gemini_configured: true,
       supabase_configured: false,
       date: new Date().toISOString().split('T')[0],
     };

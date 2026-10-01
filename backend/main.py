@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from classifier import classify_query, QueryCategory
 from rag import run_rag
 from ingestion import run_ingestion
-from config import OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
+from config import GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 app = FastAPI(
     title="Facts-Only Mutual Fund RAG Chatbot API",
@@ -84,7 +84,7 @@ class SourceItem(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
-    openai_configured: bool
+    gemini_configured: bool
     supabase_configured: bool
     date: str
 
@@ -238,10 +238,10 @@ async def get_sources() -> list[SourceItem]:
 
 @app.get("/api/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    """Health check — reports whether OpenAI and Supabase are configured."""
+    """Health check — reports whether Gemini and Supabase are configured."""
     return HealthResponse(
         status="ok",
-        openai_configured=bool(OPENAI_API_KEY),
+        gemini_configured=bool(GEMINI_API_KEY),
         supabase_configured=bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
         date=date.today().isoformat(),
     )
