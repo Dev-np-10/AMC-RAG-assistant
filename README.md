@@ -122,7 +122,7 @@ The assistant should not use its general model knowledge to answer questions whe
 
 > I can provide factual information about the fund from the available official sources, but I can't provide investment advice or recommendations.
 
-### Supported Scope
+### Source list - 15–25 URLs used in this chatbot
 
 The current knowledge base focuses on selected HDFC Mutual Fund schemes and official information from sources such as HDFC Mutual Fund, AMFI and SEBI. Answers are generated only when sufficient supporting evidence can be retrieved from the indexed sources.
 
