@@ -1,0 +1,25 @@
+source_id,amc,scheme_name,source_type,url,title,last_updated
+hdfc-balanced-factsheet,HDFC Mutual Fund,HDFC Balanced Advantage Fund,factsheet,https://www.hdfcfund.com/factsheet/balanced-advantage,HDFC Balanced Advantage Fund - Factsheet,2026-09-30
+hdfc-balanced-sid,HDFC Mutual Fund,HDFC Balanced Advantage Fund,scheme_information,https://www.hdfcfund.com/sid/balanced-advantage,HDFC Balanced Advantage Fund - Scheme Information Document,2026-09-30
+hdfc-midcap-factsheet,HDFC Mutual Fund,HDFC Mid-Cap Opportunities Fund,factsheet,https://www.hdfcfund.com/factsheet/mid-cap-opportunities,HDFC Mid-Cap Opportunities Fund - Factsheet,2026-09-30
+hdfc-midcap-sid,HDFC Mutual Fund,HDFC Mid-Cap Opportunities Fund,scheme_information,https://www.hdfcfund.com/sid/mid-cap-opportunities,HDFC Mid-Cap Opportunities Fund - Scheme Information Document,2026-09-30
+hdfc-shortterm-factsheet,HDFC Mutual Fund,HDFC Short Term Debt Fund,factsheet,https://www.hdfcfund.com/factsheet/short-term-debt,HDFC Short Term Debt Fund - Factsheet,2026-09-30
+hdfc-shortterm-sid,HDFC Mutual Fund,HDFC Short Term Debt Fund,scheme_information,https://www.hdfcfund.com/sid/short-term-debt,HDFC Short Term Debt Fund - Scheme Information Document,2026-09-30
+hdfc-index-factsheet,HDFC Mutual Fund,HDFC Index Fund - Nifty 50 Plan,factsheet,https://www.hdfcfund.com/factsheet/index-nifty-50,HDFC Index Fund - Nifty 50 Plan - Factsheet,2026-09-30
+hdfc-index-sid,HDFC Mutual Fund,HDFC Index Fund - Nifty 50 Plan,scheme_information,https://www.hdfcfund.com/sid/index-nifty-50,HDFC Index Fund - Nifty 50 Plan - Scheme Information Document,2026-09-30
+sebi-circular-mutual-funds,SEBI,,sebi_circular,https://www.sebi.gov.in/circulars/mutual-funds,SEBI Circular on Mutual Fund Regulations,2026-09-30
+amfi-scheme-codes,AMFI,,amfi_data,https://www.amfiindia.com/scheme-codes,AMFI Scheme Code Master List,2026-09-30
+amfi-total-expense-ratio,AMFI,,amfi_data,https://www.amfiindia.com/ter,AMFI Total Expense Ratio Disclosure,2026-09-30
+sebi-riskometer,SEBI,,sebi_circular,https://www.sebi.gov.in/circulars/riskometer,SEBI Riskometer Guidelines,2026-09-30
+hdfc-balanced-kim,HDFC Mutual Fund,HDFC Balanced Advantage Fund,scheme_information,https://www.hdfcfund.com/kim/balanced-advantage,HDFC Balanced Advantage Fund - Key Information Memorandum,2026-09-30
+hdfc-midcap-kim,HDFC Mutual Fund,HDFC Mid-Cap Opportunities Fund,scheme_information,https://www.hdfcfund.com/kim/mid-cap-opportunities,HDFC Mid-Cap Opportunities Fund - Key Information Memorandum,2026-09-30
+hdfc-shortterm-kim,HDFC Mutual Fund,HDFC Short Term Debt Fund,scheme_information,https://www.hdfcfund.com/kim/short-term-debt,HDFC Short Term Debt Fund - Key Information Memorandum,2026-09-30
+hdfc-index-kim,HDFC Mutual Fund,HDFC Index Fund - Nifty 50 Plan,scheme_information,https://www.hdfcfund.com/kim/index-nifty-50,HDFC Index Fund - Nifty 50 Plan - Key Information Memorandum,2026-09-30
+hdfc-balanced-portfolio,HDFC Mutual Fund,HDFC Balanced Advantage Fund,factsheet,https://www.hdfcfund.com/portfolio/balanced-advantage,HDFC Balanced Advantage Fund - Portfolio Statement,2026-09-30
+hdfc-midcap-portfolio,HDFC Mutual Fund,HDFC Mid-Cap Opportunities Fund,factsheet,https://www.hdfcfund.com/portfolio/mid-cap-opportunities,HDFC Mid-Cap Opportunities Fund - Portfolio Statement,2026-09-30
+hdfc-shortterm-portfolio,HDFC Mutual Fund,HDFC Short Term Debt Fund,factsheet,https://www.hdfcfund.com/portfolio/short-term-debt,HDFC Short Term Debt Fund - Portfolio Statement,2026-09-30
+hdfc-index-portfolio,HDFC Mutual Fund,HDFC Index Fund - Nifty 50 Plan,factsheet,https://www.hdfcfund.com/portfolio/index-nifty-50,HDFC Index Fund - Nifty 50 Plan - Portfolio Statement,2026-09-30
+sebi-circular-ter,SEBI,,sebi_circular,https://www.sebi.gov.in/circulars/ter,SEBI Circular on Total Expense Ratio,2026-09-30
+amfi-nav-history,AMFI,,amfi_data,https://www.amfiindia.com/nav-history,AMFI NAV History Database,2026-09-30
+hdfc-balanced-addendum,HDFC Mutual Fund,HDFC Balanced Advantage Fund,scheme_information,https://www.hdfcfund.com/addendum/balanced-advantage,HDFC Balanced Advantage Fund - Addendum,2026-09-30
+hdfc-midcap-addendum,HDFC Mutual Fund,HDFC Mid-Cap Opportunities Fund,scheme_information,https://www.hdfcfund.com/addendum/mid-cap-opportunities,HDFC Mid-Cap Opportunities Fund - Addendum,2026-09-30
