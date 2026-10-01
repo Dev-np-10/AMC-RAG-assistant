@@ -4,6 +4,9 @@ A RAG-based chatbot that answers factual questions about mutual fund schemes usi
 
 The assistant is intentionally designed to provide facts only and does not provide investment recommendations, portfolio advice, return predictions, or personalized financial advice.
 
+RAG Evaluation: Tested factual queries against the live embedding + pgvector retrieval pipeline, including paraphrased questions and out-of-corpus queries. The system cites retrieved source metadata and abstains when similarity falls below the configured evidence threshold.
+
+
 🚀 Live Demo
 
 Working Prototype:
@@ -665,3 +668,158 @@ Blocks questions about:
 ## License
 
 This project is for educational/demo purposes. Mutual fund data is sourced from official public documents. Always consult a SEBI-registered financial advisor before investing.
+
+
+## Sample Q & A
+
+✅ Retrieval
+
+What is the expense ratio of HDFC Balanced Advantage Fund?
+
+What is the exit load for HDFC Mid-Cap Opportunities Fund?
+
+What is the riskometer rating of HDFC Index Fund?
+
+What is the benchmark of HDFC Short Term Debt Fund?
+
+✅ Semantic variations
+
+How much does HDFC charge for managing the Balanced Advantage Fund?
+
+What percentage is charged as an expense for the Balanced Advantage scheme?
+
+✅ Abstention
+
+What is the expense ratio of SBI Bluechip Fund?
+
+What is the salary of the HDFC fund manager?
+
+What is the capital of france
+
+✅ Refusals
+
+Should I invest in HDFC Balanced Advantage Fund?
+
+Which HDFC fund is best?
+
+Will HDFC Mid-Cap Fund give good returns next year?
+
+Those should refuse appropriately.
+
+## Sample Questions & Answers
+
+The following examples demonstrate the types of questions the Mutual Fund Assistant is designed to answer using retrieved information from official AMC, AMFI and SEBI sources.
+
+| #  | Sample Question                                                            | Expected Answer / Behavior                                                                                              |
+| -- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 1  | What is the expense ratio of HDFC Balanced Advantage Fund?                 | Returns the expense ratio from the relevant official HDFC source with a citation.                                       |
+| 2  | What is the exit load of HDFC Balanced Advantage Fund?                     | Returns the applicable exit-load information from the official scheme document.                                         |
+| 3  | What is the benchmark of HDFC Balanced Advantage Fund?                     | Returns the benchmark stated in the relevant official source.                                                           |
+| 4  | What is the riskometer for HDFC Balanced Advantage Fund?                   | Returns the risk level stated in the applicable official document.                                                      |
+| 5  | What is the minimum investment amount for HDFC Balanced Advantage Fund?    | Returns the minimum investment amount from the relevant official source.                                                |
+| 6  | What is the expense ratio of HDFC Mid-Cap Opportunities Fund?              | Returns the expense ratio from the relevant official HDFC source with a citation.                                       |
+| 7  | What is the benchmark of HDFC Mid-Cap Opportunities Fund?                  | Returns the benchmark stated in the scheme documentation.                                                               |
+| 8  | What is the riskometer of HDFC Mid-Cap Opportunities Fund?                 | Returns the risk level stated in the official source.                                                                   |
+| 9  | What is the exit load of HDFC Mid-Cap Opportunities Fund?                  | Returns the applicable exit-load information from the official source.                                                  |
+| 10 | What is the minimum investment for HDFC Mid-Cap Opportunities Fund?        | Returns the applicable minimum investment information.                                                                  |
+| 11 | What is the expense ratio of HDFC Short Term Debt Fund?                    | Returns the expense ratio from the relevant official HDFC source.                                                       |
+| 12 | What is the benchmark of HDFC Short Term Debt Fund?                        | Returns the benchmark stated in the official scheme documentation.                                                      |
+| 13 | What is the riskometer of HDFC Short Term Debt Fund?                       | Returns the risk level stated in the relevant official document.                                                        |
+| 14 | What is the exit load of HDFC Short Term Debt Fund?                        | Returns the applicable exit-load information.                                                                           |
+| 15 | What is the minimum investment amount for HDFC Short Term Debt Fund?       | Returns the relevant minimum investment information.                                                                    |
+| 16 | What is the expense ratio of HDFC Index Fund - Nifty 50 Plan?              | Returns the expense ratio from the relevant official HDFC source.                                                       |
+| 17 | What is the benchmark of HDFC Index Fund - Nifty 50 Plan?                  | Returns the benchmark stated in the official documentation.                                                             |
+| 18 | What is the riskometer of HDFC Index Fund - Nifty 50 Plan?                 | Returns the risk level stated in the official source.                                                                   |
+| 19 | What is the exit load of HDFC Index Fund - Nifty 50 Plan?                  | Returns the applicable exit-load information.                                                                           |
+| 20 | What is the minimum investment amount for HDFC Index Fund - Nifty 50 Plan? | Returns the applicable minimum investment information.                                                                  |
+| 21 | How much does HDFC Balanced Advantage Fund charge as its annual expense?   | Semantically retrieves the relevant expense-ratio information and cites the supporting official source.                 |
+| 22 | What costs apply when I redeem HDFC Mid-Cap Opportunities Fund?            | Retrieves the relevant exit-load information without providing investment advice.                                       |
+| 23 | What is the risk level of HDFC Short Term Debt Fund?                       | Retrieves the documented riskometer information from an official source.                                                |
+| 24 | What is the expense ratio of SBI Bluechip Fund?                            | **Abstains:** the assistant should not answer because SBI Bluechip Fund is outside the available indexed corpus.        |
+| 25 | Should I invest in HDFC Balanced Advantage Fund?                           | **Refuses:** the assistant provides factual information only and does not provide investment advice or recommendations. |
+
+### Example Grounded Response
+
+**Question:** What is the expense ratio of HDFC Balanced Advantage Fund?
+
+**Expected behavior:** The assistant retrieves the relevant official HDFC document, extracts the applicable expense-ratio information, provides a concise factual answer, and cites the supporting source.
+
+### Example No-Evidence Response
+
+**Question:** What is the expense ratio of SBI Bluechip Fund?
+
+**Expected behavior:**
+
+> I don't have enough information in the available official sources to answer that question.
+
+The assistant should not use its general model knowledge to answer questions when sufficient supporting evidence is unavailable in the indexed corpus.
+
+### Example Advice Refusal
+
+**Question:** Should I invest in HDFC Balanced Advantage Fund?
+
+**Expected behavior:**
+
+> I can provide factual information about the fund from the available official sources, but I can't provide investment advice or recommendations.
+
+### Supported Scope
+
+The current knowledge base focuses on selected HDFC Mutual Fund schemes and official information from sources such as HDFC Mutual Fund, AMFI and SEBI. Answers are generated only when sufficient supporting evidence can be retrieved from the indexed sources.
+
+
+| #  | Source                                             | Organisation | Purpose                                                |
+| -- | -------------------------------------------------- | ------------ | ------------------------------------------------------ |
+| 1  | HDFC Flexi Cap Fund – Regular                      | HDFC MF      | Scheme facts, minimum investment, exit load, benchmark |
+| 2  | HDFC Flexi Cap Fund – Direct                       | HDFC MF      | Scheme facts and plan details                          |
+| 3  | HDFC Large & Mid Cap Fund – Regular                | HDFC MF      | Scheme facts, investment details                       |
+| 4  | HDFC Large & Mid Cap Fund – Direct                 | HDFC MF      | Scheme facts and plan details                          |
+| 5  | HDFC ELSS Tax Saver Fund – Direct                  | HDFC MF      | ELSS, lock-in, minimum investment, exit load           |
+| 6  | HDFC Balanced Advantage Fund – Regular             | HDFC MF      | Scheme facts, riskometer, benchmark                    |
+| 7  | HDFC Balanced Advantage Fund – Direct              | HDFC MF      | Scheme facts and plan details                          |
+| 8  | HDFC Mutual Fund – Key Information Memorandum      | HDFC MF      | KIM/document repository                                |
+| 9  | HDFC Mutual Fund – Fund Literature / Leaflets      | HDFC MF      | Scheme literature and investor information             |
+| 10 | HDFC Mutual Fund – Fund Literature / Presentations | HDFC MF      | Scheme presentations and educational material          |
+| 11 | HDFC Mutual Fund – Balanced Advantage Funds        | HDFC MF      | Educational information about the scheme category      |
+| 12 | SEBI – Mutual Fund SID Database                    | SEBI         | Official scheme/SID documents                          |
+| 13 | SEBI – Mutual Fund Filings                         | SEBI         | Official regulatory filings                            |
+| 14 | SEBI – Investor Education Reading Material         | SEBI         | Investor education                                     |
+| 15 | SEBI – Personal Securities / Mutual Funds          | SEBI         | Mutual fund investor information                       |
+| 16 | SEBI – Investments in Mutual Funds                 | SEBI         | Mutual fund basics and investor education              |
+| 17 | SEBI – Investor Education Programme                | SEBI         | Mutual fund investor education                         |
+| 18 | SEBI – Offer Document Requirements                 | SEBI         | Regulatory/documentation context                       |
+| 19 | AMFI – Investor Corner                             | AMFI         | General investor information                           |
+| 20 | AMFI – Introduction to Mutual Funds                | AMFI         | Mutual fund fundamentals                               |
+| 21 | AMFI – Systematic Investment Plan (SIP)            | AMFI         | SIP-related factual information                        |
+| 22 | AMFI – Expense Ratio                               | AMFI         | TER/expense-ratio explanation                          |
+| 23 | AMFI – TER of Mutual Fund Schemes                  | AMFI         | Current scheme TER information                         |
+| 24 | AMFI – Risk-o-Meter                                | AMFI         | Riskometer information                                 |
+| 25 | AMFI – How to Invest in Mutual Funds               | AMFI         | Investor process/how-to information                    |
+
+
+## Known Limitations
+
+- **Limited corpus:** The assistant is restricted to a curated set of official HDFC Mutual Fund, SEBI and AMFI sources. It may not answer questions about schemes or AMCs outside the indexed corpus.
+
+- **Source freshness:** Mutual fund information such as expense ratios, riskometers, exit loads and scheme details can change. The assistant depends on the latest successfully ingested source content and is not a real-time financial data service.
+
+- **Retrieval dependency:** Answer quality depends on retrieving the correct source chunks. If relevant information is not retrieved, the assistant may respond that the information was not found rather than generate an unsupported answer.
+
+- **LLM limitations:** The underlying LLM can still produce incorrect or inconsistent responses. Prompt instructions and retrieval grounding reduce hallucination risk but cannot guarantee zero errors. :contentReference[oaicite:0]{index=0}
+
+- **No investment advice:** The assistant does not provide recommendations, portfolio allocation, return predictions, fund rankings or personalised financial advice.
+
+- **No performance analysis:** Historical or expected returns are not calculated, compared or predicted by the assistant.
+
+- **Limited question coverage:** The prototype is optimized for factual questions such as expense ratio, exit load, minimum SIP, ELSS lock-in, riskometer, benchmark and basic investor-process questions.
+
+- **No personal account access:** The assistant cannot access investor accounts, holdings, transactions, statements or KYC information.
+
+- **No PII processing:** Users should not provide PAN, Aadhaar, bank/account numbers, OTPs, passwords, phone numbers or other sensitive personal information.
+
+- **Citation limitations:** Citations identify the official source used for the response, but users should verify important or time-sensitive information against the linked source before making financial decisions.
+
+- **Prototype-scale RAG:** The retrieval pipeline is designed for a small curated corpus and has not been optimized for large-scale document collections, advanced reranking or enterprise-scale retrieval.
+
+- **Prompt dependency:** Prompt instructions improve consistency but do not guarantee that the model will follow every instruction in every situation. :contentReference[oaicite:1]{index=1}
+
+- **Not a financial-data platform:** The prototype is intended as an educational FAQ assistant and should not be treated as a substitute for official scheme documents, regulatory disclosures or professional financial advice.
